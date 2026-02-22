@@ -1,9 +1,3 @@
-<!DOCTYPE html>
-<html>
-<head>
-<title>My Website</title>
-</head>
-<body>
-<h1>Hello Sohel 🚀</h1>
-</body>
-</html>
+pip install -r requirements.txt
+gunicorn app:app
+http://127.0.0.1:5000
