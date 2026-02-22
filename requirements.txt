@@ -1,3 +1,7 @@
-flask
-requests
+torch
+diffusers
+transformers
+accelerate
+safetensors
 Pillow
+flask
