@@ -1,7 +1,1 @@
-torch
-diffusers
-transformers
-accelerate
-safetensors
-Pillow
-flask
+gunicorn app:app
