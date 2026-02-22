@@ -1,55 +1,50 @@
-import requests
-import base64
 from flask import Flask, request, render_template_string
+from diffusers import StableDiffusionImg2ImgPipeline
+import torch
+from PIL import Image
+import io
+import base64
 
 app = Flask(__name__)
 
-# Hugging Face API URL
-API_URL = "https://api-inference.huggingface.co/models/runwayml/stable-diffusion-v1-5"
-# আপনার আসল টোকেনটি এখানে বসান
-headers = {"Authorization": "Bearer YOUR_REAL_TOKEN_HERE"}
+# Load model
+pipe = StableDiffusionImg2ImgPipeline.from_pretrained(
+    "runwayml/stable-diffusion-v1-5",
+    torch_dtype=torch.float16
+).to("cuda" if torch.cuda.is_available() else "cpu")
 
 HTML = """
 <!doctype html>
-<html lang="bn">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Face Editor</title>
-    <style>
-        body { font-family: sans-serif; text-align: center; padding: 20px; background-color: #f4f4f9; }
-        .card { max-width: 400px; margin: auto; background: white; padding: 20px; border-radius: 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
-        .btn { background-color: #007bff; color: white; border: none; padding: 10px 20px; border-radius: 5px; width: 100%; cursor: pointer; }
-    </style>
-</head>
-<body>
-    <div class="card">
-        <h2>✨ AI Face Editor</h2>
-        <form method="post" enctype="multipart/form-data">
-            <input type="file" name="image" accept="image/*" required><br><br>
-            <input type="submit" class="btn" value="এডিট শুরু করুন">
-        </form>
-        {% if image %}
-        <h3>ফলাফল:</h3>
-        <img src="data:image/png;base64,{{image}}" style="max-width:100%; border-radius:10px;">
-        {% endif %}
-    </div>
-</body>
-</html>
+<title>AI Face Editor</title>
+<h2>Upload Image</h2>
+<form method=post enctype=multipart/form-data>
+  <input type=file name=image>
+  <input type=submit value=Upload>
+</form>
+{% if image %}
+<h3>Result:</h3>
+<img src="data:image/png;base64,{{image}}">
+{% endif %}
 """
 
 @app.route("/", methods=["GET", "POST"])
 def home():
     if request.method == "POST":
-        file = request.files.get("image")
-        if file:
-            response = requests.post(API_URL, headers=headers, data=file.read())
-            if response.status_code == 200:
-                img_str = base64.b64encode(response.content).decode()
-                return render_template_string(HTML, image=img_str)
-            else:
-                return "সার্ভার এখন ব্যস্ত। আপনার টোকেনটি চেক করুন।"
+        file = request.files["image"]
+        init_image = Image.open(file).convert("RGB")
+        init_image = init_image.resize((512, 512))
+
+        prompt = "Add beautiful golden jewelry on the face"
+
+        result = pipe(prompt=prompt, image=init_image, strength=0.6).images[0]
+
+        buffered = io.BytesIO()
+        result.save(buffered, format="PNG")
+        img_str = base64.b64encode(buffered.getvalue()).decode()
+
+        return render_template_string(HTML, image=img_str)
+
     return render_template_string(HTML)
 
 if __name__ == "__main__":
-    app.run(host='0.0.0.0', port=7860)
+    app.run(debug=True)
